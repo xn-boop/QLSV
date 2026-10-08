@@ -14,7 +14,7 @@ Nguyên tắc: triển khai tuần tự; một nhiệm vụ chỉ hoàn thành k
 | ID  | Nhiệm vụ                                                     | Dependency | Trạng thái |
 | --- | ------------------------------------------------------------ | ---------- | ---------- |
 | T01 | Nền tảng NestJS và quality gates                             | Tài liệu   | DONE       |
-| T02 | PostgreSQL/Redis, Prisma, migration nền tảng                 | T01        | TODO       |
+| T02 | PostgreSQL/Redis, Prisma, migration nền tảng                 | T01        | DONE       |
 | T03 | Auth, session, refresh, invitation/reset và RBAC             | T02        | TODO       |
 | T04 | Khoa, ngành, môn, curriculum, policy và semester             | T03        | TODO       |
 | T05 | Student, Teacher, Class và membership history                | T04        | TODO       |
@@ -157,3 +157,13 @@ Các mục này không chặn T01–T03 hoặc thiết kế policy revision; ch�
 - Lỗi đã xử lý: NestJS 12 yêu cầu TypeScript 6+ không tương thích bộ test đang dùng nên pin dòng NestJS 11 hiện hành; sửa Joi CommonJS import; sửa logger request-scoped trong global filter; sửa Supertest CommonJS import. `@nestjs/swagger` pin `js-yaml@5.3.0` có advisory DoS mức vừa; npm override có phạm vi đã nâng riêng dependency này lên bản vá `5.4.3`, sau đó chạy lại audit và toàn bộ quality gates.
 - Tồn đọng: readiness cho PostgreSQL/Redis chưa có đúng phạm vi T01; CORS/CSRF/auth/rate limit thuộc T03; security header production thuộc T12. `X-Powered-By` sẽ được tắt ở nhiệm vụ hardening hoặc trước khi bật môi trường public.
 - Nhiệm vụ kế tiếp: T02 — PostgreSQL 17/Redis, Prisma schema nền tảng, migration và constraint integration tests.
+
+### T02
+
+- Trạng thái: DONE — 09/10/2026.
+- Kết quả: Docker Compose chạy PostgreSQL 17.6 và Redis 8.2 chỉ trên localhost; Prisma JavaScript query engine kết nối qua adapter PostgreSQL; schema và migration nền tảng tạo 11 model cho user/RBAC/session/challenge/audit/outbox/idempotency. Migrator dùng PostgreSQL advisory lock, checksum SHA-256 và transaction cho từng migration; chạy lặp không áp dụng lại. Seed ba role `ADMIN`, `LECTURER`, `STUDENT` idempotent. `/api/v1/health/ready` chỉ trả ready khi cả PostgreSQL và Redis phản hồi.
+- Tệp thay đổi: `compose.yaml`, `.env.example`, `package.json`, `package-lock.json`, `prisma/`, `scripts/`, `src/app.module.ts`, `src/config/`, `src/infrastructure/`, `src/modules/health/`, `test/`, `README.md` và file tiến độ này.
+- Kiểm thử: schema validate và Prisma Client generate đạt; migration đã chạy từ database trống, lần hai báo `Applied migrations: none`; seed chạy hai lần vẫn có đúng ba system role. `npm run check` đạt format, lint, type-check, 9 unit tests, 5 E2E tests và build. `npm run check:db` đạt migration/seed và 3 integration tests trên PostgreSQL thật, gồm quan hệ/FK, transaction, unique email và check constraint. Production smoke test gọi readiness nhận HTTP 200 với `database: up`, `redis: up`. Unit test dependency lỗi xác nhận readiness trả 503 fail-closed. `npm audit --omit=dev` báo 4 high từ advisory stack exhaustion của `deepmerge-ts@7.1.5` qua Prisma CLI/config; npm xác nhận chưa có bản vá. Đường gọi này là tooling build-time, không nhận dữ liệu request của API; cần nâng ngay khi Prisma phát hành dependency đã vá.
+- Lỗi đã xử lý: binary Prisma từ CDN không tải được trong môi trường cloud; chuyển query runtime sang JavaScript engine chính thức. Prisma WASM migration engine không giải mã được system type `name` của PostgreSQL 17 qua adapter; thay bằng migrator PostgreSQL có lock/checksum/transaction. Sửa client generation để giữ type đầy đủ và sửa fixture role vượt giới hạn 30 ký tự; cleanup test được ghi nhận ngay sau từng insert.
+- Tồn đọng: permission matrix, token/session service và Redis fail-closed cho authorization thuộc T03. Chính sách production chưa xác nhận tiếp tục để tắt theo tài liệu; Redis không được dùng làm nguồn dữ liệu quyết định.
+- Nhiệm vụ kế tiếp: T03 — triển khai authentication/session theo nhóm nhỏ, bắt đầu từ password hashing, JWT key/config và permission primitives trước khi mở endpoint login.

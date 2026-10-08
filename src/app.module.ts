@@ -3,6 +3,8 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
 import { LoggerModule } from 'nestjs-pino';
 import { randomUUID } from 'node:crypto';
 import { validateEnvironment } from './config/environment';
+import { DatabaseModule } from './infrastructure/database/database.module';
+import { RedisModule } from './infrastructure/redis/redis.module';
 import { HealthModule } from './modules/health/health.module';
 
 const requestIdPattern =
@@ -46,6 +48,8 @@ const requestIdPattern =
         },
       }),
     }),
+    DatabaseModule,
+    RedisModule,
     HealthModule,
   ],
 })

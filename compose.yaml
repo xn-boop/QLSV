@@ -1,0 +1,35 @@
+name: qlsv
+
+services:
+  postgres:
+    image: postgres:17.6-alpine
+    environment:
+      POSTGRES_DB: qlsv
+      POSTGRES_USER: qlsv
+      POSTGRES_PASSWORD: qlsv_dev_only
+    ports:
+      - '127.0.0.1:5432:5432'
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U qlsv -d qlsv']
+      interval: 2s
+      timeout: 3s
+      retries: 15
+    volumes:
+      - qlsv_postgres_data:/var/lib/postgresql/data
+
+  redis:
+    image: redis:8.2-alpine
+    command: ['redis-server', '--appendonly', 'yes']
+    ports:
+      - '127.0.0.1:6379:6379'
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 2s
+      timeout: 3s
+      retries: 15
+    volumes:
+      - qlsv_redis_data:/data
+
+volumes:
+  qlsv_postgres_data:
+  qlsv_redis_data:

@@ -8,6 +8,8 @@ export interface EnvironmentVariables {
   APP_NAME: string;
   API_PREFIX: string;
   LOG_LEVEL: 'fatal' | 'error' | 'warn' | 'info' | 'debug' | 'trace' | 'silent';
+  DATABASE_URL: string;
+  REDIS_URL: string;
 }
 
 const environmentSchema = Joi.object<EnvironmentVariables>({
@@ -21,6 +23,12 @@ const environmentSchema = Joi.object<EnvironmentVariables>({
   LOG_LEVEL: Joi.string()
     .valid('fatal', 'error', 'warn', 'info', 'debug', 'trace', 'silent')
     .default('info'),
+  DATABASE_URL: Joi.string()
+    .uri({ scheme: ['postgresql', 'postgres'] })
+    .required(),
+  REDIS_URL: Joi.string()
+    .uri({ scheme: ['redis', 'rediss'] })
+    .required(),
 }).unknown(true);
 
 export function validateEnvironment(config: Record<string, unknown>): EnvironmentVariables {
