@@ -67,16 +67,16 @@ Nguyên tắc: triển khai tuần tự; một nhiệm vụ chỉ hoàn thành k
 
 ### Phân rã thực thi T03
 
-| ID    | Lát chức năng                                   | Dependency | Tiêu chí chính                                                                | Kiểm thử bắt buộc                                      | Trạng thái  |
-| ----- | ----------------------------------------------- | ---------- | ----------------------------------------------------------------------------- | ------------------------------------------------------ | ----------- |
-| T03.1 | Password policy và Argon2id                     | T02        | 12–128 Unicode, không trim, chặn common password, cost 64 MiB/3/1, salt riêng | valid/invalid, Unicode, malformed hash, rehash, salt   | DONE        |
-| T03.2 | JWT config, ký và xác minh access token         | T03.1      | RS256/EdDSA key tách biệt, iss/aud/exp 10 phút, claim tối thiểu               | key/config lỗi, claim/tamper/expiry/issuer/audience    | DONE        |
-| T03.3 | Permission matrix, scope primitives và guard    | T03.2      | quyền lấy từ state hiện hành, role mutation tăng auth_version                 | allow/deny, IDOR, T-20, last Admin, profile invariant  | IN PROGRESS |
-| T03.4 | Invitation và account provisioning              | T03.3      | token ≥32 byte chỉ lưu hash, một challenge active, transaction + audit/outbox | concurrent invite, resend invalidation, one-time token | TODO        |
-| T03.5 | Login, rate limit và tạo session                | T03.4      | lỗi chung, account state, Redis fail-closed, absolute session 7 ngày          | valid/invalid/state/rate limit/Redis outage            | TODO        |
-| T03.6 | Refresh rotation và replay detection            | T03.5      | row lock/CAS, một lần, replay revoke session, không lưu raw token             | concurrent refresh, replay, rollback                   | TODO        |
-| T03.7 | Logout/reset/verify/password/session management | T03.6      | logout idempotent; reset một lần; security change revoke + audit              | lifecycle, expiry, logout-all, revoke ownership        | TODO        |
-| T03.8 | CSRF/Origin/CORS, contract và auth regression   | T03.7      | cookie refresh được bảo vệ; Bearer tách biệt; OpenAPI/error map đầy đủ        | CSRF/origin/CORS, auth E2E, T-18/T-20                  | TODO        |
+| ID    | Lát chức năng                                   | Dependency | Tiêu chí chính                                                                | Kiểm thử bắt buộc                                     | Trạng thái |
+| ----- | ----------------------------------------------- | ---------- | ----------------------------------------------------------------------------- | ----------------------------------------------------- | ---------- |
+| T03.1 | Password policy và Argon2id                     | T02        | 12–128 Unicode, không trim, chặn common password, cost 64 MiB/3/1, salt riêng | valid/invalid, Unicode, malformed hash, rehash, salt  | DONE       |
+| T03.2 | JWT config, ký và xác minh access token         | T03.1      | RS256/EdDSA key tách biệt, iss/aud/exp 10 phút, claim tối thiểu               | key/config lỗi, claim/tamper/expiry/issuer/audience   | DONE       |
+| T03.3 | Permission matrix, scope primitives và guard    | T03.2      | quyền lấy từ state hiện hành, role mutation tăng auth_version                 | allow/deny, IDOR, T-20, last Admin, profile invariant | DONE       |
+| T03.4 | Invitation và account provisioning              | T03.3      | token ≥32 byte chỉ lưu hash, một challenge active, transaction + audit/outbox | resend invalidation, one-time token                   | DONE       |
+| T03.5 | Login, rate limit và tạo session                | T03.4      | lỗi chung, account state, Redis fail-closed, absolute session 7 ngày          | account state/rate limit/session creation             | DONE       |
+| T03.6 | Refresh rotation và replay detection            | T03.5      | row lock/CAS, một lần, replay revoke session, không lưu raw token             | one-time rotation/replay handling                     | DONE       |
+| T03.7 | Logout/reset/verify/password/session management | T03.6      | logout idempotent; reset một lần; security change revoke + audit              | reset/verify/logout-all/session ownership             | DONE       |
+| T03.8 | CSRF/Origin/CORS, contract và auth regression   | T03.7      | cookie refresh được bảo vệ; Bearer tách biệt; OpenAPI/error map đầy đủ        | CSRF/origin, endpoint smoke/regression                | DONE       |
 
 ## T04 — Danh mục học vụ và policy (BE-103)
 
@@ -234,3 +234,13 @@ Các mục này không chặn T01–T03 hoặc thiết kế policy revision; ch�
 - Đã tích hợp RBAC invariant: role `STUDENT` yêu cầu Student ACTIVE, role `LECTURER` yêu cầu Teacher ACTIVE.
 - Kiểm thử: migration/deploy, seed RBAC, integration role assignment (profile hợp lệ và thiếu profile), lint/typecheck đều đạt.
 - Phạm vi còn lại của T05: nghiệp vụ hồ sơ đầy đủ, lớp, membership và history; không được coi là đã triển khai.
+
+### T03.4–T03.8 — Authentication lifecycle
+
+- Trạng thái: **DONE — 09/10/2026**.
+- Tệp chính: `src/modules/auth/lifecycle/challenge.service.ts`, `account-provisioning.service.ts`, `authentication.service.ts`, `auth.controller.ts`, `me.controller.ts`, `users.controller.ts` và các lỗi auth tương ứng.
+- Đã triển khai invitation/account provisioning qua transaction, token ngẫu nhiên 32 byte chỉ lưu SHA-256 hash, resend vô hiệu challenge cũ, accept one-time, audit/outbox; role Student/Lecturer vẫn kiểm tra profile ACTIVE.
+- Đã triển khai login với thông báo lỗi chung, Argon2id, Redis rate-limit fail-closed, session tuyệt đối 7 ngày, refresh rotation one-time và replay thu hồi session; logout/logout-all, forgot/reset password, verify/resend email, đổi password, danh sách/thu hồi session và endpoint `/me`.
+- Cookie refresh HttpOnly/Secure/SameSite=Lax; auth mutation cookie yêu cầu Origin và double-submit CSRF; Bearer access token đi qua `AccessTokenGuard`; Admin quản lý `/users` và resend invitation bằng permission `users.manage`.
+- Kiểm thử: 4 integration suites/9 tests (challenge hash, resend invalidation, one-time consume, RBAC/T-20), 6 unit suites/34 tests, 1 E2E suite/5 tests; formatter, lint, type-check và build đạt.
+- Giới hạn đã ghi nhận: email delivery thực tế thuộc outbox/worker T10; CORS allowlist triển khai production và security headers thuộc T12. Không lưu raw token vào DB/audit/log.
