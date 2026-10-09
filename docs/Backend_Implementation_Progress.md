@@ -209,3 +209,12 @@ Các mục này không chặn T01–T03 hoặc thiết kế policy revision; ch�
 - Kiểm thử: 27 unit tests và 5 integration tests đạt. Integration PostgreSQL chứng minh T-20: xóa role làm permission biến mất ngay dù JWT còn hạn; đổi `authVersion` hoặc revoke session làm token bị từ chối. Formatter, lint và type-check đều đạt.
 - Tồn đọng: chưa có HTTP guard/decorator để gắn principal vào protected endpoint; permission matrix chính thức, scope Lecturer/Student, mutation role bảo vệ Admin cuối thuộc các lát tiếp theo của T03.3.
 - Nhiệm vụ kế tiếp: T03.3.2 — bearer guard và metadata permission tối thiểu, map 401/403 theo envelope hiện có; chưa mở endpoint nghiệp vụ.
+
+### T03.3.2
+
+- Trạng thái: DONE — 09/10/2026.
+- Kết quả: thêm `AccessTokenGuard` và `@RequirePermissions(...)`. Guard chỉ nhận Bearer token đúng định dạng, dùng principal đã xác minh ở T03.3.1, gắn principal vào request và yêu cầu tất cả permission được khai báo. Token/session sai hoặc hết hiệu lực trả 401 `UNAUTHENTICATED`; token hợp lệ nhưng thiếu quyền trả 403 `FORBIDDEN` theo response envelope hiện có.
+- Tệp thay đổi: `src/modules/auth/authorization/`, `src/modules/auth/auth.module.ts`, `src/common/http/request-context.ts` và file tiến độ này.
+- Kiểm thử: unit test các nhánh allow, thiếu/malformed Bearer, principal bị từ chối và thiếu một trong nhiều permissions; full regression được chạy trước commit.
+- Tồn đọng: chưa áp guard lên endpoint nghiệp vụ vì các endpoint Auth/Users chưa được tạo. Scope theo Student/Lecturer vẫn phải kiểm tra trong query/transaction của từng module; permission matrix và lifecycle mutation role thuộc lát tiếp theo.
+- Nhiệm vụ kế tiếp: T03.3.3 — định nghĩa/seed permission matrix tối thiểu và service mutation RBAC có transaction, audit/outbox và bảo vệ Admin cuối.
