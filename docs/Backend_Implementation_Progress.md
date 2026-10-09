@@ -67,16 +67,16 @@ Nguyên tắc: triển khai tuần tự; một nhiệm vụ chỉ hoàn thành k
 
 ### Phân rã thực thi T03
 
-| ID    | Lát chức năng                                   | Dependency | Tiêu chí chính                                                                | Kiểm thử bắt buộc                                      | Trạng thái |
-| ----- | ----------------------------------------------- | ---------- | ----------------------------------------------------------------------------- | ------------------------------------------------------ | ---------- |
-| T03.1 | Password policy và Argon2id                     | T02        | 12–128 Unicode, không trim, chặn common password, cost 64 MiB/3/1, salt riêng | valid/invalid, Unicode, malformed hash, rehash, salt   | DONE       |
-| T03.2 | JWT config, ký và xác minh access token         | T03.1      | RS256/EdDSA key tách biệt, iss/aud/exp 10 phút, claim tối thiểu               | key/config lỗi, claim/tamper/expiry/issuer/audience    | DONE       |
-| T03.3 | Permission matrix, scope primitives và guard    | T03.2      | quyền lấy từ state hiện hành, role mutation tăng auth_version                 | allow/deny, IDOR, T-20, last Admin, profile invariant  | TODO       |
-| T03.4 | Invitation và account provisioning              | T03.3      | token ≥32 byte chỉ lưu hash, một challenge active, transaction + audit/outbox | concurrent invite, resend invalidation, one-time token | TODO       |
-| T03.5 | Login, rate limit và tạo session                | T03.4      | lỗi chung, account state, Redis fail-closed, absolute session 7 ngày          | valid/invalid/state/rate limit/Redis outage            | TODO       |
-| T03.6 | Refresh rotation và replay detection            | T03.5      | row lock/CAS, một lần, replay revoke session, không lưu raw token             | concurrent refresh, replay, rollback                   | TODO       |
-| T03.7 | Logout/reset/verify/password/session management | T03.6      | logout idempotent; reset một lần; security change revoke + audit              | lifecycle, expiry, logout-all, revoke ownership        | TODO       |
-| T03.8 | CSRF/Origin/CORS, contract và auth regression   | T03.7      | cookie refresh được bảo vệ; Bearer tách biệt; OpenAPI/error map đầy đủ        | CSRF/origin/CORS, auth E2E, T-18/T-20                  | TODO       |
+| ID    | Lát chức năng                                   | Dependency | Tiêu chí chính                                                                | Kiểm thử bắt buộc                                      | Trạng thái  |
+| ----- | ----------------------------------------------- | ---------- | ----------------------------------------------------------------------------- | ------------------------------------------------------ | ----------- |
+| T03.1 | Password policy và Argon2id                     | T02        | 12–128 Unicode, không trim, chặn common password, cost 64 MiB/3/1, salt riêng | valid/invalid, Unicode, malformed hash, rehash, salt   | DONE        |
+| T03.2 | JWT config, ký và xác minh access token         | T03.1      | RS256/EdDSA key tách biệt, iss/aud/exp 10 phút, claim tối thiểu               | key/config lỗi, claim/tamper/expiry/issuer/audience    | DONE        |
+| T03.3 | Permission matrix, scope primitives và guard    | T03.2      | quyền lấy từ state hiện hành, role mutation tăng auth_version                 | allow/deny, IDOR, T-20, last Admin, profile invariant  | IN PROGRESS |
+| T03.4 | Invitation và account provisioning              | T03.3      | token ≥32 byte chỉ lưu hash, một challenge active, transaction + audit/outbox | concurrent invite, resend invalidation, one-time token | TODO        |
+| T03.5 | Login, rate limit và tạo session                | T03.4      | lỗi chung, account state, Redis fail-closed, absolute session 7 ngày          | valid/invalid/state/rate limit/Redis outage            | TODO        |
+| T03.6 | Refresh rotation và replay detection            | T03.5      | row lock/CAS, một lần, replay revoke session, không lưu raw token             | concurrent refresh, replay, rollback                   | TODO        |
+| T03.7 | Logout/reset/verify/password/session management | T03.6      | logout idempotent; reset một lần; security change revoke + audit              | lifecycle, expiry, logout-all, revoke ownership        | TODO        |
+| T03.8 | CSRF/Origin/CORS, contract và auth regression   | T03.7      | cookie refresh được bảo vệ; Bearer tách biệt; OpenAPI/error map đầy đủ        | CSRF/origin/CORS, auth E2E, T-18/T-20                  | TODO        |
 
 ## T04 — Danh mục học vụ và policy (BE-103)
 
@@ -200,3 +200,12 @@ Các mục này không chặn T01–T03 hoặc thiết kế policy revision; ch�
 - Lỗi đã xử lý: type của custom JWT claim từ thư viện là `unknown`; service kiểm tra runtime trước khi chuyển thành `authVersion` để không tin dữ liệu token chưa xác thực. Audit vẫn chỉ báo advisory Prisma tooling không có bản vá đã ghi ở T02, không có advisory mới từ JWT dependency.
 - Tồn đọng: service token chưa xác minh session/account/RBAC theo trạng thái hiện hành; đây là điều kiện bắt buộc của T03.3 và các endpoint login/refresh chưa được mở.
 - Nhiệm vụ kế tiếp: T03.3 — permission matrix, principal lấy từ PostgreSQL và guard/scope để JWT còn hạn không vượt qua việc thu hồi role (T-20).
+
+### T03.3.1
+
+- Trạng thái: DONE — 09/10/2026.
+- Kết quả: thêm `AccessPrincipalService` để mỗi access token hợp lệ vẫn phải khớp `auth_sessions` chưa revoke/chưa hết hạn, User active/chưa soft-delete và `authVersion` hiện hành trong PostgreSQL. Roles và permissions được nạp lại từ liên kết RBAC ở DB, không lấy từ JWT; token chỉ mang định danh phiên tối thiểu.
+- Tệp thay đổi: `src/modules/auth/principal/`, `src/modules/auth/auth.module.ts`, `test/access-principal.integration-spec.ts` và file tiến độ này.
+- Kiểm thử: 27 unit tests và 5 integration tests đạt. Integration PostgreSQL chứng minh T-20: xóa role làm permission biến mất ngay dù JWT còn hạn; đổi `authVersion` hoặc revoke session làm token bị từ chối. Formatter, lint và type-check đều đạt.
+- Tồn đọng: chưa có HTTP guard/decorator để gắn principal vào protected endpoint; permission matrix chính thức, scope Lecturer/Student, mutation role bảo vệ Admin cuối thuộc các lát tiếp theo của T03.3.
+- Nhiệm vụ kế tiếp: T03.3.2 — bearer guard và metadata permission tối thiểu, map 401/403 theo envelope hiện có; chưa mở endpoint nghiệp vụ.
