@@ -1,7 +1,10 @@
 import { PrismaPg } from '@prisma/adapter-pg';
 import { PrismaClient, UserStatus } from '@prisma/client';
 import type { PrismaService } from '../src/infrastructure/database/prisma.service';
-import { LastAdminProtectionError } from '../src/modules/auth/rbac/rbac.errors';
+import {
+  ActiveProfileRequiredError,
+  LastAdminProtectionError,
+} from '../src/modules/auth/rbac/rbac.errors';
 import { RoleAssignmentService } from '../src/modules/auth/rbac/role-assignment.service';
 import { randomUUID } from 'node:crypto';
 
@@ -11,13 +14,16 @@ describe('role assignment (PostgreSQL integration)', () => {
   });
   const service = new RoleAssignmentService(prisma as unknown as PrismaService);
   const userIds: string[] = [];
+  const departmentIds: string[] = [];
 
   afterAll(async () => {
     await prisma.auditLog.deleteMany({ where: { actorUserId: { in: userIds } } });
     await prisma.outboxEvent.deleteMany({ where: { aggregateId: { in: userIds } } });
     await prisma.authSession.deleteMany({ where: { userId: { in: userIds } } });
     await prisma.userRole.deleteMany({ where: { userId: { in: userIds } } });
+    await prisma.teacher.deleteMany({ where: { userId: { in: userIds } } });
     await prisma.user.deleteMany({ where: { id: { in: userIds } } });
+    await prisma.department.deleteMany({ where: { id: { in: departmentIds } } });
     await prisma.$disconnect();
   });
 
@@ -37,6 +43,18 @@ describe('role assignment (PostgreSQL integration)', () => {
   it('replaces roles atomically, revokes sessions, increments authVersion and writes audit/outbox', async () => {
     const actor = await activeUser();
     const target = await activeUser();
+    const department = await prisma.department.create({
+      data: { code: `D_${randomUUID().slice(0, 8)}`, name: 'Integration Department' },
+    });
+    departmentIds.push(department.id);
+    await prisma.teacher.create({
+      data: {
+        userId: target.id,
+        teacherCode: `T_${randomUUID().slice(0, 8)}`,
+        departmentId: department.id,
+        fullName: 'Integration Lecturer',
+      },
+    });
     const admin = await role('ADMIN');
     await prisma.userRole.create({ data: { userId: actor.id, roleId: admin.id } });
     await prisma.authSession.create({
@@ -92,5 +110,25 @@ describe('role assignment (PostgreSQL integration)', () => {
         where: { userId_roleId: { userId: soleAdmin.id, roleId: admin.id } },
       }),
     ).resolves.not.toBeNull();
+  });
+
+  it('rejects STUDENT assignment without an active student profile and rolls back', async () => {
+    const actor = await activeUser();
+    const target = await activeUser();
+    const admin = await role('ADMIN');
+    await prisma.userRole.create({ data: { userId: actor.id, roleId: admin.id } });
+
+    await expect(
+      service.replaceRoles({
+        actorUserId: actor.id,
+        targetUserId: target.id,
+        roleCodes: ['STUDENT'],
+        requestId: randomUUID(),
+        reason: 'missing-profile',
+      }),
+    ).rejects.toBeInstanceOf(ActiveProfileRequiredError);
+    await expect(prisma.userRole.findMany({ where: { userId: target.id } })).resolves.toHaveLength(
+      0,
+    );
   });
 });

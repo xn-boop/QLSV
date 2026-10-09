@@ -1,7 +1,12 @@
 import { Injectable } from '@nestjs/common';
 import { ActorType, Prisma, UserStatus } from '@prisma/client';
 import { PrismaService } from '../../../infrastructure/database/prisma.service';
-import { LastAdminProtectionError, UnknownRoleError, UserNotFoundError } from './rbac.errors';
+import {
+  ActiveProfileRequiredError,
+  LastAdminProtectionError,
+  UnknownRoleError,
+  UserNotFoundError,
+} from './rbac.errors';
 
 export interface ReplaceUserRolesInput {
   actorUserId: string;
@@ -32,6 +37,21 @@ export class RoleAssignmentService {
         const foundCodes = new Set(requestedRoles.map((role) => role.code));
         const unknownCodes = requestedCodes.filter((code) => !foundCodes.has(code));
         if (unknownCodes.length > 0) throw new UnknownRoleError(unknownCodes);
+
+        if (requestedCodes.includes('STUDENT')) {
+          const profile = await transaction.student.findFirst({
+            where: { userId: user.id, status: 'ACTIVE', deletedAt: null },
+            select: { id: true },
+          });
+          if (!profile) throw new ActiveProfileRequiredError('STUDENT');
+        }
+        if (requestedCodes.includes('LECTURER')) {
+          const profile = await transaction.teacher.findFirst({
+            where: { userId: user.id, status: 'ACTIVE', deletedAt: null },
+            select: { id: true },
+          });
+          if (!profile) throw new ActiveProfileRequiredError('LECTURER');
+        }
 
         const currentCodes = user.userRoles.map((userRole) => userRole.role.code).sort();
         if (this.sameCodes(currentCodes, requestedCodes)) return;

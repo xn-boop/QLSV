@@ -224,4 +224,13 @@ Các mục này không chặn T01–T03 hoặc thiết kế policy revision; ch�
 - Trạng thái: DONE — 09/10/2026.
 - Kết quả: seed idempotent 20 permission cho ADMIN/LECTURER/STUDENT. `RoleAssignmentService` thay role bằng Serializable transaction, tăng `authVersion`, revoke session, ghi audit/outbox và bảo vệ Admin active cuối.
 - Kiểm thử: integration PostgreSQL chứng minh thay role có audit/outbox/revoke và không thể gỡ Admin cuối; formatter/lint/type-check và full regression chạy trước commit.
-- Tồn đọng: invariant Student/Lecturer cần profile chưa thể hoàn tất vì bảng profile thuộc T05 chưa tồn tại; RBAC mutation role phải gọi validator profile khi T05 được triển khai. T03.4 vẫn có thể tiếp tục với invitation ADMIN hoặc account chưa gán role profile.
+- Đã bổ sung invariant: chỉ được gán role `STUDENT`/`LECTURER` khi user có profile tương ứng đang `ACTIVE` và chưa bị xoá mềm; kiểm tra nằm trong cùng transaction thay role, có test rollback khi thiếu profile.
+- Tồn đọng: cần tiếp tục T03.4 (invitation/account provisioning); workflow đầy đủ của T05 (hồ sơ, lớp, membership/history) vẫn chưa hoàn thành.
+
+### T05.MIN — Profile foundation prerequisite
+
+- Trạng thái: **DONE (phạm vi tối thiểu, không phải toàn bộ T05)**.
+- Đã thêm migration `20261009100000_profiles_foundation`: `Department`, `Major`, `Student`, `Teacher`, `ProfileStatus`, foreign key/index/unique/check constraints và soft-delete/version fields.
+- Đã tích hợp RBAC invariant: role `STUDENT` yêu cầu Student ACTIVE, role `LECTURER` yêu cầu Teacher ACTIVE.
+- Kiểm thử: migration/deploy, seed RBAC, integration role assignment (profile hợp lệ và thiếu profile), lint/typecheck đều đạt.
+- Phạm vi còn lại của T05: nghiệp vụ hồ sơ đầy đủ, lớp, membership và history; không được coi là đã triển khai.

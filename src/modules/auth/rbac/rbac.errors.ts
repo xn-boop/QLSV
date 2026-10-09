@@ -18,3 +18,10 @@ export class UserNotFoundError extends Error {
     this.name = 'UserNotFoundError';
   }
 }
+
+export class ActiveProfileRequiredError extends Error {
+  constructor(readonly roleCode: 'STUDENT' | 'LECTURER') {
+    super(`An active ${roleCode.toLowerCase()} profile is required for this role`);
+    this.name = 'ActiveProfileRequiredError';
+  }
+}
