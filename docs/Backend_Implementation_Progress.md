@@ -218,3 +218,10 @@ Các mục này không chặn T01–T03 hoặc thiết kế policy revision; ch�
 - Kiểm thử: unit test các nhánh allow, thiếu/malformed Bearer, principal bị từ chối và thiếu một trong nhiều permissions; full regression được chạy trước commit.
 - Tồn đọng: chưa áp guard lên endpoint nghiệp vụ vì các endpoint Auth/Users chưa được tạo. Scope theo Student/Lecturer vẫn phải kiểm tra trong query/transaction của từng module; permission matrix và lifecycle mutation role thuộc lát tiếp theo.
 - Nhiệm vụ kế tiếp: T03.3.3 — định nghĩa/seed permission matrix tối thiểu và service mutation RBAC có transaction, audit/outbox và bảo vệ Admin cuối.
+
+### T03.3.3
+
+- Trạng thái: DONE — 09/10/2026.
+- Kết quả: seed idempotent 20 permission cho ADMIN/LECTURER/STUDENT. `RoleAssignmentService` thay role bằng Serializable transaction, tăng `authVersion`, revoke session, ghi audit/outbox và bảo vệ Admin active cuối.
+- Kiểm thử: integration PostgreSQL chứng minh thay role có audit/outbox/revoke và không thể gỡ Admin cuối; formatter/lint/type-check và full regression chạy trước commit.
+- Tồn đọng: invariant Student/Lecturer cần profile chưa thể hoàn tất vì bảng profile thuộc T05 chưa tồn tại; RBAC mutation role phải gọi validator profile khi T05 được triển khai. T03.4 vẫn có thể tiếp tục với invitation ADMIN hoặc account chưa gán role profile.
