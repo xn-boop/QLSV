@@ -16,7 +16,7 @@ Nguyên tắc: triển khai tuần tự; một nhiệm vụ chỉ hoàn thành k
 | T01 | Nền tảng NestJS và quality gates                             | Tài liệu   | DONE        |
 | T02 | PostgreSQL/Redis, Prisma, migration nền tảng                 | T01        | DONE        |
 | T03 | Auth, session, refresh, invitation/reset và RBAC             | T02        | IN PROGRESS |
-| T04 | Khoa, ngành, môn, curriculum, policy và semester             | T03        | TODO        |
+| T04 | Khoa, ngành, môn, curriculum, policy và semester             | T03        | IN PROGRESS |
 | T05 | Student, Teacher, Class và membership history                | T04        | TODO        |
 | T06 | Offering, phân công, room, schedule và session               | T05        | TODO        |
 | T07 | Enrollment, concurrency, idempotency, drop/withdraw/transfer | T06        | TODO        |
@@ -244,3 +244,11 @@ Các mục này không chặn T01–T03 hoặc thiết kế policy revision; ch�
 - Cookie refresh HttpOnly/Secure/SameSite=Lax; auth mutation cookie yêu cầu Origin và double-submit CSRF; Bearer access token đi qua `AccessTokenGuard`; Admin quản lý `/users` và resend invitation bằng permission `users.manage`.
 - Kiểm thử: 4 integration suites/9 tests (challenge hash, resend invalidation, one-time consume, RBAC/T-20), 6 unit suites/34 tests, 1 E2E suite/5 tests; formatter, lint, type-check và build đạt.
 - Giới hạn đã ghi nhận: email delivery thực tế thuộc outbox/worker T10; CORS allowlist triển khai production và security headers thuộc T12. Không lưu raw token vào DB/audit/log.
+
+### T04.1 — Subject và prerequisite DAG
+
+- Trạng thái: **DONE — 09/10/2026**.
+- Đã thêm `Subject` và `SubjectPrerequisite`, migration `20261009120000_subjects_prerequisites` với FK `RESTRICT`, unique code, credits `1–10`, version/index và cấm tự tham chiếu ở DB.
+- `SubjectService.replacePrerequisites` thay toàn bộ cạnh trong Serializable transaction, kiểm tra subject tồn tại, duplicate/self-reference và phát hiện chu trình trên toàn đồ thị trước khi ghi; lỗi cycle rollback toàn bộ thay đổi.
+- Kiểm thử: migration deploy, lint/type-check và integration PostgreSQL đạt; test tạo A→B→C và từ chối C→A, giữ nguyên hai cạnh hợp lệ.
+- Nhiệm vụ kế tiếp: T04.2 — Curriculum/revision, gắn môn theo ngành và activate chỉ khi danh mục hợp lệ.

@@ -76,8 +76,39 @@ model Department {
   updatedAt DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
   majors    Major[]
   teachers  Teacher[]
+  subjects  Subject[]
 
   @@map("departments")
+}
+
+model Subject {
+  id            String                @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  departmentId  String                @map("department_id") @db.Uuid
+  code          String                @unique @db.VarChar(30)
+  name          String                @db.VarChar(200)
+  credits       Int                   @db.SmallInt
+  description   String?
+  status        String                @default("active") @db.VarChar(20)
+  createdAt     DateTime              @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt     DateTime              @updatedAt @map("updated_at") @db.Timestamptz(6)
+  version       Int                   @default(1)
+  department    Department            @relation(fields: [departmentId], references: [id], onDelete: Restrict)
+  prerequisites SubjectPrerequisite[] @relation("SubjectPrerequisites")
+  requiredBy    SubjectPrerequisite[] @relation("PrerequisiteSubject")
+
+  @@index([departmentId, status], map: "subjects_department_status_idx")
+  @@map("subjects")
+}
+
+model SubjectPrerequisite {
+  subjectId             String  @map("subject_id") @db.Uuid
+  prerequisiteSubjectId String  @map("prerequisite_subject_id") @db.Uuid
+  subject               Subject @relation("SubjectPrerequisites", fields: [subjectId], references: [id], onDelete: Restrict)
+  prerequisiteSubject   Subject @relation("PrerequisiteSubject", fields: [prerequisiteSubjectId], references: [id], onDelete: Restrict)
+
+  @@id([subjectId, prerequisiteSubjectId])
+  @@index([prerequisiteSubjectId], map: "subject_prerequisites_prerequisite_idx")
+  @@map("subject_prerequisites")
 }
 
 model Major {

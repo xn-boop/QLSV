@@ -7,6 +7,7 @@ import { DatabaseModule } from './infrastructure/database/database.module';
 import { RedisModule } from './infrastructure/redis/redis.module';
 import { AuthModule } from './modules/auth/auth.module';
 import { HealthModule } from './modules/health/health.module';
+import { CatalogModule } from './modules/catalog/catalog.module';
 
 const requestIdPattern =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -53,6 +54,7 @@ const requestIdPattern =
     RedisModule,
     AuthModule,
     HealthModule,
+    CatalogModule,
   ],
 })
 export class AppModule {}
