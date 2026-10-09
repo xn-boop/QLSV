@@ -5,6 +5,7 @@ import { randomUUID } from 'node:crypto';
 import { validateEnvironment } from './config/environment';
 import { DatabaseModule } from './infrastructure/database/database.module';
 import { RedisModule } from './infrastructure/redis/redis.module';
+import { AuthModule } from './modules/auth/auth.module';
 import { HealthModule } from './modules/health/health.module';
 
 const requestIdPattern =
@@ -50,6 +51,7 @@ const requestIdPattern =
     }),
     DatabaseModule,
     RedisModule,
+    AuthModule,
     HealthModule,
   ],
 })

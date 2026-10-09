@@ -11,20 +11,20 @@ Nguyên tắc: triển khai tuần tự; một nhiệm vụ chỉ hoàn thành k
 
 ## Trạng thái tổng quan
 
-| ID  | Nhiệm vụ                                                     | Dependency | Trạng thái |
-| --- | ------------------------------------------------------------ | ---------- | ---------- |
-| T01 | Nền tảng NestJS và quality gates                             | Tài liệu   | DONE       |
-| T02 | PostgreSQL/Redis, Prisma, migration nền tảng                 | T01        | DONE       |
-| T03 | Auth, session, refresh, invitation/reset và RBAC             | T02        | TODO       |
-| T04 | Khoa, ngành, môn, curriculum, policy và semester             | T03        | TODO       |
-| T05 | Student, Teacher, Class và membership history                | T04        | TODO       |
-| T06 | Offering, phân công, room, schedule và session               | T05        | TODO       |
-| T07 | Enrollment, concurrency, idempotency, drop/withdraw/transfer | T06        | TODO       |
-| T08 | Gradebook, publish/lock, adjustment, transcript và GPA       | T07        | TODO       |
-| T09 | Attendance sheet, roster theo thời điểm và correction        | T07        | TODO       |
-| T10 | Outbox/worker, notification, file, import và report jobs     | T03–T09    | TODO       |
-| T11 | Search, dashboard, audit query và settings                   | T08–T10    | TODO       |
-| T12 | Security hardening, load/recovery, deployment và UAT         | T01–T11    | TODO       |
+| ID  | Nhiệm vụ                                                     | Dependency | Trạng thái  |
+| --- | ------------------------------------------------------------ | ---------- | ----------- |
+| T01 | Nền tảng NestJS và quality gates                             | Tài liệu   | DONE        |
+| T02 | PostgreSQL/Redis, Prisma, migration nền tảng                 | T01        | DONE        |
+| T03 | Auth, session, refresh, invitation/reset và RBAC             | T02        | IN PROGRESS |
+| T04 | Khoa, ngành, môn, curriculum, policy và semester             | T03        | TODO        |
+| T05 | Student, Teacher, Class và membership history                | T04        | TODO        |
+| T06 | Offering, phân công, room, schedule và session               | T05        | TODO        |
+| T07 | Enrollment, concurrency, idempotency, drop/withdraw/transfer | T06        | TODO        |
+| T08 | Gradebook, publish/lock, adjustment, transcript và GPA       | T07        | TODO        |
+| T09 | Attendance sheet, roster theo thời điểm và correction        | T07        | TODO        |
+| T10 | Outbox/worker, notification, file, import và report jobs     | T03–T09    | TODO        |
+| T11 | Search, dashboard, audit query và settings                   | T08–T10    | TODO        |
+| T12 | Security hardening, load/recovery, deployment và UAT         | T01–T11    | TODO        |
 
 ## T01 — Nền tảng NestJS và quality gates
 
@@ -64,6 +64,19 @@ Nguyên tắc: triển khai tuần tự; một nhiệm vụ chỉ hoàn thành k
 **Tiêu chí:** token thô không lưu/log; thay role/password khóa phiên đúng đặc tả; role Student/Lecturer yêu cầu hồ sơ; Admin cuối được bảo vệ; API/OpenAPI đầy đủ mã lỗi.
 
 **Kiểm thử:** auth lifecycle, concurrent refresh, replay, reset một lần, account states, IDOR/scope, Redis outage fail-closed, T-20.
+
+### Phân rã thực thi T03
+
+| ID    | Lát chức năng                                   | Dependency | Tiêu chí chính                                                                | Kiểm thử bắt buộc                                      | Trạng thái |
+| ----- | ----------------------------------------------- | ---------- | ----------------------------------------------------------------------------- | ------------------------------------------------------ | ---------- |
+| T03.1 | Password policy và Argon2id                     | T02        | 12–128 Unicode, không trim, chặn common password, cost 64 MiB/3/1, salt riêng | valid/invalid, Unicode, malformed hash, rehash, salt   | DONE       |
+| T03.2 | JWT config, ký và xác minh access token         | T03.1      | RS256/EdDSA key tách biệt, iss/aud/exp 10 phút, claim tối thiểu               | key/config lỗi, claim/tamper/expiry/issuer/audience    | TODO       |
+| T03.3 | Permission matrix, scope primitives và guard    | T03.2      | quyền lấy từ state hiện hành, role mutation tăng auth_version                 | allow/deny, IDOR, T-20, last Admin, profile invariant  | TODO       |
+| T03.4 | Invitation và account provisioning              | T03.3      | token ≥32 byte chỉ lưu hash, một challenge active, transaction + audit/outbox | concurrent invite, resend invalidation, one-time token | TODO       |
+| T03.5 | Login, rate limit và tạo session                | T03.4      | lỗi chung, account state, Redis fail-closed, absolute session 7 ngày          | valid/invalid/state/rate limit/Redis outage            | TODO       |
+| T03.6 | Refresh rotation và replay detection            | T03.5      | row lock/CAS, một lần, replay revoke session, không lưu raw token             | concurrent refresh, replay, rollback                   | TODO       |
+| T03.7 | Logout/reset/verify/password/session management | T03.6      | logout idempotent; reset một lần; security change revoke + audit              | lifecycle, expiry, logout-all, revoke ownership        | TODO       |
+| T03.8 | CSRF/Origin/CORS, contract và auth regression   | T03.7      | cookie refresh được bảo vệ; Bearer tách biệt; OpenAPI/error map đầy đủ        | CSRF/origin/CORS, auth E2E, T-18/T-20                  | TODO       |
 
 ## T04 — Danh mục học vụ và policy (BE-103)
 
@@ -167,3 +180,13 @@ Các mục này không chặn T01–T03 hoặc thiết kế policy revision; ch�
 - Lỗi đã xử lý: binary Prisma từ CDN không tải được trong môi trường cloud; chuyển query runtime sang JavaScript engine chính thức. Prisma WASM migration engine không giải mã được system type `name` của PostgreSQL 17 qua adapter; thay bằng migrator PostgreSQL có lock/checksum/transaction. Sửa client generation để giữ type đầy đủ và sửa fixture role vượt giới hạn 30 ký tự; cleanup test được ghi nhận ngay sau từng insert.
 - Tồn đọng: permission matrix, token/session service và Redis fail-closed cho authorization thuộc T03. Chính sách production chưa xác nhận tiếp tục để tắt theo tài liệu; Redis không được dùng làm nguồn dữ liệu quyết định.
 - Nhiệm vụ kế tiếp: T03 — triển khai authentication/session theo nhóm nhỏ, bắt đầu từ password hashing, JWT key/config và permission primitives trước khi mở endpoint login.
+
+### T03.1
+
+- Trạng thái: DONE — 09/10/2026.
+- Kết quả: thêm `AuthModule` và `PasswordHasherService`; policy đếm Unicode code point, giữ nguyên chuỗi không trim/normalize, giới hạn 12–128, từ chối control character và mật khẩu phổ biến/dễ đoán bằng dictionary offline. Hash dùng Argon2id 64 MiB, 3 iterations, parallelism 1, hash 32 byte và salt do thư viện sinh; verify malformed hash trả `false`, có `needsRehash` để nâng cost sau này.
+- Tệp thay đổi: `package.json`, `package-lock.json`, `src/app.module.ts`, `src/modules/auth/` và file tiến độ này.
+- Kiểm thử: unit test xác nhận tham số encoded hash, salt riêng, đúng/sai password, không trim, Unicode boundary, mọi nhánh policy, malformed hash và rehash. Benchmark cục bộ Argon2id đạt khoảng 156 ms/hash, nằm trong mục tiêu 100–300 ms của đặc tả. `npm run check` đạt formatter, lint, type-check, 17 unit tests, 5 E2E tests và build; `npm run check:db` đạt 3 integration tests. Audit vẫn chỉ còn advisory Prisma tooling đã ghi ở T02.
+- Lỗi đã xử lý: test ban đầu giả định thứ tự tham số encoded `m,t,p` trong khi thư viện xuất `m,p,t`; assertion được đổi sang kiểm tra tập tham số. Chuỗi lặp của common password được zxcvbn phân loại `repeat`, nên policy dùng score 0–1 để bao phủ cả dictionary và biến thể lặp/tuần tự dễ đoán.
+- Tồn đọng: chưa tạo JWT, endpoint hoặc thay đổi session/database; các phần này nằm ở T03.2–T03.8.
+- Nhiệm vụ kế tiếp: T03.2 — cấu hình khóa bất đối xứng và service ký/xác minh access JWT 10 phút với claim tối thiểu.
