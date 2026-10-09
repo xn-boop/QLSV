@@ -10,6 +10,10 @@ export interface EnvironmentVariables {
   LOG_LEVEL: 'fatal' | 'error' | 'warn' | 'info' | 'debug' | 'trace' | 'silent';
   DATABASE_URL: string;
   REDIS_URL: string;
+  JWT_PRIVATE_KEY: string;
+  JWT_PUBLIC_KEY: string;
+  JWT_ISSUER: string;
+  JWT_AUDIENCE: string;
 }
 
 const environmentSchema = Joi.object<EnvironmentVariables>({
@@ -29,6 +33,10 @@ const environmentSchema = Joi.object<EnvironmentVariables>({
   REDIS_URL: Joi.string()
     .uri({ scheme: ['redis', 'rediss'] })
     .required(),
+  JWT_PRIVATE_KEY: Joi.string().min(1).required(),
+  JWT_PUBLIC_KEY: Joi.string().min(1).required(),
+  JWT_ISSUER: Joi.string().trim().min(1).max(255).required(),
+  JWT_AUDIENCE: Joi.string().trim().min(1).max(255).required(),
 }).unknown(true);
 
 export function validateEnvironment(config: Record<string, unknown>): EnvironmentVariables {

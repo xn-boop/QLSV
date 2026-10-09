@@ -20,6 +20,13 @@ npm run db:seed
 npm run start:dev
 ```
 
+T03 requires an RSA key pair. Generate it locally, keep the private key out of Git/terminal history, then put the PEM values in your secret manager or `.env` (newlines may be written as `\n`):
+
+```bash
+openssl genpkey -algorithm RSA -pkeyopt rsa_keygen_bits:2048 -out jwt-private.pem
+openssl pkey -in jwt-private.pem -pubout -out jwt-public.pem
+```
+
 - Liveness: `GET http://localhost:3000/api/v1/health/live`
 - Readiness PostgreSQL/Redis: `GET http://localhost:3000/api/v1/health/ready`
 - OpenAPI UI: `http://localhost:3000/api/v1/docs`

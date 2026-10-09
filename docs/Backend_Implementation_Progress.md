@@ -70,7 +70,7 @@ Nguyên tắc: triển khai tuần tự; một nhiệm vụ chỉ hoàn thành k
 | ID    | Lát chức năng                                   | Dependency | Tiêu chí chính                                                                | Kiểm thử bắt buộc                                      | Trạng thái |
 | ----- | ----------------------------------------------- | ---------- | ----------------------------------------------------------------------------- | ------------------------------------------------------ | ---------- |
 | T03.1 | Password policy và Argon2id                     | T02        | 12–128 Unicode, không trim, chặn common password, cost 64 MiB/3/1, salt riêng | valid/invalid, Unicode, malformed hash, rehash, salt   | DONE       |
-| T03.2 | JWT config, ký và xác minh access token         | T03.1      | RS256/EdDSA key tách biệt, iss/aud/exp 10 phút, claim tối thiểu               | key/config lỗi, claim/tamper/expiry/issuer/audience    | TODO       |
+| T03.2 | JWT config, ký và xác minh access token         | T03.1      | RS256/EdDSA key tách biệt, iss/aud/exp 10 phút, claim tối thiểu               | key/config lỗi, claim/tamper/expiry/issuer/audience    | DONE       |
 | T03.3 | Permission matrix, scope primitives và guard    | T03.2      | quyền lấy từ state hiện hành, role mutation tăng auth_version                 | allow/deny, IDOR, T-20, last Admin, profile invariant  | TODO       |
 | T03.4 | Invitation và account provisioning              | T03.3      | token ≥32 byte chỉ lưu hash, một challenge active, transaction + audit/outbox | concurrent invite, resend invalidation, one-time token | TODO       |
 | T03.5 | Login, rate limit và tạo session                | T03.4      | lỗi chung, account state, Redis fail-closed, absolute session 7 ngày          | valid/invalid/state/rate limit/Redis outage            | TODO       |
@@ -190,3 +190,13 @@ Các mục này không chặn T01–T03 hoặc thiết kế policy revision; ch�
 - Lỗi đã xử lý: test ban đầu giả định thứ tự tham số encoded `m,t,p` trong khi thư viện xuất `m,p,t`; assertion được đổi sang kiểm tra tập tham số. Chuỗi lặp của common password được zxcvbn phân loại `repeat`, nên policy dùng score 0–1 để bao phủ cả dictionary và biến thể lặp/tuần tự dễ đoán.
 - Tồn đọng: chưa tạo JWT, endpoint hoặc thay đổi session/database; các phần này nằm ở T03.2–T03.8.
 - Nhiệm vụ kế tiếp: T03.2 — cấu hình khóa bất đối xứng và service ký/xác minh access JWT 10 phút với claim tối thiểu.
+
+### T03.2
+
+- Trạng thái: DONE — 09/10/2026.
+- Kết quả: thêm `AccessTokenService` dùng JWT RS256 với cặp RSA ≥2048 bit; service ký access token 10 phút và chỉ đưa các claim bắt buộc `sub`, `sid`, `authVersion`, `iss`, `aud`, `iat`, `exp`, `jti`. Config bắt buộc private/public key, issuer và audience; khóa được parse lúc khởi động, kiểm tra type/modulus và chứng minh public/private khớp trước khi phục vụ request. Đặc tả không chốt thuật toán cụ thể; chọn RS256 vì tương thích rộng với validator và client trong khi vẫn dùng cặp khóa tách biệt.
+- Tệp thay đổi: `.env.example`, `README.md`, `package.json`, `package-lock.json`, `test/jest-setup.ts`, `test/jwt-fixtures.ts`, `src/config/`, `src/modules/auth/` và file tiến độ này.
+- Kiểm thử: xác nhận claim/TTL, chữ ký RS256, token bị tamper, expired, sai issuer và sai algorithm đều bị từ chối; test PEM escaped newline, private key sai và public/private không khớp. `npm run check` đạt formatter, lint, type-check, 25 unit tests, 5 E2E tests và build; `npm run check:db` đạt migration/seed và 3 integration tests PostgreSQL.
+- Lỗi đã xử lý: type của custom JWT claim từ thư viện là `unknown`; service kiểm tra runtime trước khi chuyển thành `authVersion` để không tin dữ liệu token chưa xác thực. Audit vẫn chỉ báo advisory Prisma tooling không có bản vá đã ghi ở T02, không có advisory mới từ JWT dependency.
+- Tồn đọng: service token chưa xác minh session/account/RBAC theo trạng thái hiện hành; đây là điều kiện bắt buộc của T03.3 và các endpoint login/refresh chưa được mở.
+- Nhiệm vụ kế tiếp: T03.3 — permission matrix, principal lấy từ PostgreSQL và guard/scope để JWT còn hạn không vượt qua việc thu hồi role (T-20).
